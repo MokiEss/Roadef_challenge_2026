@@ -51,6 +51,6 @@ int main() {
     snapshot.restore();
     // After restore MLU: 0.25 (back to original routing)
     std::cout << "After restore MLU: " << dspr.maxSaturation(capacities) << std::endl;
-
+    std::cout << "Im here" ;
     return 0;
 }
