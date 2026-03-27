@@ -284,6 +284,8 @@ struct Instance {
  * Time-indexed array of demand arc maps containing segment routing paths with bitmasks.
  * Indexed as [time_slot][demand_arc] to retrieve the SrPathBit for a specific demand at a specific time.
  */
+
+
 struct RoutingScheme {
   nt::DynamicArray< DemandGraph::ArcMap< SrPathBit > > _td_srpath;   // RoutingScheme[time][demand_arc] = SrPathBit
 
@@ -295,6 +297,24 @@ struct RoutingScheme {
   void                                    setSrPathsAt(int time_slot, DemandGraph::ArcMap< SrPathBit >&& srpathbit) noexcept { _td_srpath[time_slot] = std::move(srpathbit); }
   DemandGraph::ArcMap< SrPathBit >&       getSrPathsAt(int time_slot) noexcept { return _td_srpath[time_slot]; }
   const DemandGraph::ArcMap< SrPathBit >& getSrPathsAt(int time_slot) const noexcept { return _td_srpath[time_slot]; }
+
+  void removeSrPath(int time_slot, DemandGraph::Arc demand_arc, int waypoint_index) noexcept
+  {
+    SrPathBit& path = _td_srpath[time_slot][demand_arc];
+    int seg_num = path.segmentNum();
+    if (waypoint_index < 0 || waypoint_index >= seg_num - 2) return; // invalid, since source and target can't be removed
+    int seg_index = waypoint_index + 1; // 0: source, 1: first waypoint, etc.
+    // Shift elements to preserve order
+    std::memmove(path._segments._p_data + seg_index, path._segments._p_data + seg_index + 1, (seg_num - seg_index - 1) * sizeof(SrPath::Segment));
+    path._segments._i_count--;
+    // Rebuild the mask
+    path._mask.removeAll();
+    for (int i = 0; i < path.segmentNum() - 1; ++i) {
+      const Node from = path[i].toNode();
+      const Node to = path[i + 1].toNode();
+      path._mask.setOneAt(path._g->id(from) * path._g->nodeNum() + path._g->id(to));
+    }
+  }
 };
 
 #endif

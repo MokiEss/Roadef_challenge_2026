@@ -65,6 +65,7 @@
 
 // Note: ENABLE_FTXUI and CHECKER_LANG are set via Makefile at compile time
 // Use: make ENABLE_FTXUI=1 CHECKER_LANG=EN
+#define LANG_EN = EN
 #if defined(LANG_EN)
 #  include "english.h"
 #elif defined(LANG_FR)

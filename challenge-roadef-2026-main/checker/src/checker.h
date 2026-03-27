@@ -48,7 +48,7 @@
  *
  */
 inline bool loadAndCheckTeInstance(const std::string& net_file, const std::string& tm_file, Instance& inst, ResultBuilder& result_builder) noexcept {
-  LOG_F(INFO, INFO_MSG_6, net_file.c_str());
+  //LOG_F(INFO, INFO_MSG_6, net_file.c_str());
 
   nt::graphs::GraphProperties< Digraph > network_props;
   network_props.arcMap(WEIGHT_ATTR, inst.metrics);
@@ -71,14 +71,14 @@ inline bool loadAndCheckTeInstance(const std::string& net_file, const std::strin
     return false;
   }
 
-  LOG_F(INFO, INFO_MSG_0, net_file.c_str(), inst.network.nodeNum(), inst.network.arcNum());
+  //LOG_F(INFO, INFO_MSG_0, net_file.c_str(), inst.network.nodeNum(), inst.network.arcNum());
 
   const Instance::NetworkxIo::IdNodeMap& id_node_map = inst.reader.idNodeMap();
   for (const auto& pair: id_node_map)
     inst.node_hashes[pair.second] = pair.first;
 
   // Load demand graphs from traffic matrix
-  LOG_F(INFO, INFO_MSG_7, tm_file.c_str());
+  //LOG_F(INFO, INFO_MSG_7, tm_file.c_str());
 
   nt::JSONDocument doc;
   if (!parseJsonFile(tm_file.c_str(), doc)) { return false; }
@@ -151,7 +151,7 @@ inline bool loadAndCheckTeInstance(const std::string& net_file, const std::strin
     return false;
   }
 
-  LOG_F(INFO, INFO_MSG_1, tm_file.c_str(), i_count);
+  //LOG_F(INFO, INFO_MSG_1, tm_file.c_str(), i_count);
 
   // Collect infos for output
   result_builder._net_file = net_file;
@@ -196,7 +196,7 @@ inline bool loadAndCheckTeInstance(const std::string& net_file, const std::strin
  *
  */
 inline bool loadAndCheckScenario(const std::string& scenario_file, const Instance& inst, Scenario& scenario, ResultBuilder& result_builder) noexcept {
-  LOG_F(INFO, INFO_MSG_8, scenario_file.c_str());
+//  LOG_F(INFO, INFO_MSG_8, scenario_file.c_str());
 
   nt::JSONDocument doc;
   if (!parseJsonFile(scenario_file.c_str(), doc)) { return false; }
@@ -267,7 +267,7 @@ inline bool loadAndCheckScenario(const std::string& scenario_file, const Instanc
     }
   }
 
-  LOG_F(INFO, INFO_MSG_2, scenario_file.c_str(), scenario.budget.size(), scenario.interventions.size());
+//  LOG_F(INFO, INFO_MSG_2, scenario_file.c_str(), scenario.budget.size(), scenario.interventions.size());
 
   // Collect infos for output
   result_builder._scenario_file = scenario_file;
@@ -453,6 +453,7 @@ inline bool simulateSegmentRouting(Instance& inst, const Scenario& scenario, con
 
     if (i_num_routed != inst.demand_graph.arcNum()) {
       LOG_F(ERROR, ERR_MSG_56, i_num_routed, inst.demand_graph.arcNum(), t);
+      std::cout << "first log" << std::endl ;
       return false;
     }
 
@@ -469,7 +470,7 @@ inline bool simulateSegmentRouting(Instance& inst, const Scenario& scenario, con
 
     result_builder.addObjectiveValues(t, f_mlu, f_sum_inv_load_cost, nt::te::jainIndex(sat));
 
-    LOG_F(INFO, INFO_MSG_4, t, f_mlu, f_sum_inv_load_cost);
+   // LOG_F(INFO, INFO_MSG_4, t, f_mlu, f_sum_inv_load_cost);
 
     // Metrics are automatically restored to their original values by InterventionGuard destructor
   }

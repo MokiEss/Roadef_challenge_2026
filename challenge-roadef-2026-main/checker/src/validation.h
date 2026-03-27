@@ -40,7 +40,7 @@ inline bool validateNetworkJsonFormat(const std::string& net_file, const std::st
   // Load and parse the schema
   nt::JSONDocument schema_doc;
   if (schema_file.empty()) {
-    LOG_F(INFO, INFO_MSG_9, "embedded network schema");
+//    LOG_F(INFO, INFO_MSG_9, "embedded network schema");
     if (schema_doc.Parse(NETWORK_SCHEMA).HasParseError()) {
       LOG_F(ERROR, ERR_MSG_31, "embedded network schema");
       return false;
@@ -118,7 +118,7 @@ inline bool validateNetworkJsonFormat(const std::string& net_file, const std::st
     }
   }
 
-  LOG_F(INFO, INFO_MSG_10);
+ //LOG_F(INFO, INFO_MSG_10);
   return true;
 }
 
@@ -133,7 +133,7 @@ inline bool validateTrafficMatrixJsonFormat(const std::string& tm_file, const st
   // Load and parse the schema
   nt::JSONDocument schema_doc;
   if (schema_file.empty()) {
-    LOG_F(INFO, INFO_MSG_11, "embedded traffic matrix schema");
+//    LOG_F(INFO, INFO_MSG_11, "embedded traffic matrix schema");
     if (schema_doc.Parse(TRAFFIC_MATRIX_SCHEMA).HasParseError()) {
       LOG_F(ERROR, ERR_MSG_38, "embedded traffic matrix schema");
       return false;
@@ -199,7 +199,7 @@ inline bool validateTrafficMatrixJsonFormat(const std::string& tm_file, const st
     }
   }
 
-  LOG_F(INFO, INFO_MSG_12);
+  //LOG_F(INFO, INFO_MSG_12);
   return true;
 }
 
@@ -214,7 +214,7 @@ inline bool validateScenarioJsonFormat(const std::string& scenario_file, const s
   // Load and parse the schema
   nt::JSONDocument schema_doc;
   if (schema_file.empty()) {
-    LOG_F(INFO, INFO_MSG_13, "embedded scenario schema");
+//    LOG_F(INFO, INFO_MSG_13, "embedded scenario schema");
     if (schema_doc.Parse(SCENARIO_SCHEMA).HasParseError()) {
       LOG_F(ERROR, ERR_MSG_44, "embedded scenario schema");
       return false;
@@ -295,7 +295,7 @@ inline bool validateScenarioJsonFormat(const std::string& scenario_file, const s
     }
   }
 
-  LOG_F(INFO, INFO_MSG_14);
+ // LOG_F(INFO, INFO_MSG_14);
   return true;
 }
 
