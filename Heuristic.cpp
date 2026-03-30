@@ -98,16 +98,22 @@ bool Heuristic::RandomHeuristicRun() {
         result_builder.display(i_max_decimal_places);
         return false;
     }
-   // cout << "Results:" << endl;
-
-   /* for (int s = 0 ; s < result_builder._sat_values.size() ; s++) {
+    cout << "Results:" << endl;
+    std::sort(
+    result_builder._sat_values.begin(),
+    result_builder._sat_values.end(),
+    [](const auto& a, const auto& b) {
+        return a.third > b.third; // Sort descending by saturation
+    }
+    );
+    for (int s = 0 ; s < result_builder._sat_values.size() ; s++) {
         auto triplet = result_builder._sat_values[s];
         int source = inst.network.id(inst.network.source(triplet.second));
         int target = inst.network.id(inst.network.target(triplet.second));
         cout << "Time slot: " << triplet.first << ", Arc: (" << inst.network.id(triplet.second)
         << " " << source << " , "<< target << "), Saturation: " << triplet.third << endl;
-    }*/
-    //result_builder.display(i_max_decimal_places);
+    }
+    result_builder.display(i_max_decimal_places);
     return true;
 }
 
