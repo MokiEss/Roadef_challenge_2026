@@ -18,7 +18,8 @@ public:
 
     Heuristic(Instance   &   inst, bool use_ftxui, ResultBuilder & result_builder, Scenario & scenario ):inst(inst),use_ftxui(use_ftxui),
             result_builder(result_builder),scenario(scenario),rs(inst) {} ;
-    bool run();
+    bool RandomHeuristicRun();
+    double computeMLU(int time_slot, const RoutingScheme& test_rs);
 };
 
 

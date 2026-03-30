@@ -11,6 +11,6 @@ int genRandomInt(int size) {
 double genRandomDouble(double size) {
     random_device rd;
     mt19937 gen(rd());
-    uniform_real_distribution<> distr(0, size - 1);
+    uniform_real_distribution<> distr(0, size);
     return distr(gen);
 }
