@@ -19,6 +19,6 @@ int main() {
          use_ftxui,  result_builder, scenario );
 
     Heuristic hr(inst, use_ftxui, result_builder, scenario );
-    hr.run();
+    hr.RandomHeuristicRun();
     return 0;
 }

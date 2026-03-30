@@ -4,19 +4,26 @@
 
 #include "Heuristic.h"
 
-double Heuristic::computeMLU(int time_slot, const RoutingScheme& test_rs) {
+double Heuristic::computeMLU(int time_slot, const RoutingScheme& test_rs, int& most_congested_arc_id) {
     SegmentRouting sr(inst.network, inst.metrics);
     const int i_num_routed = sr.run(inst.demand_graph, inst.dvms[time_slot], test_rs.getSrPathsAt(time_slot));
 
     if (i_num_routed != inst.demand_graph.arcNum()) {
+        most_congested_arc_id = -1;
         return std::numeric_limits<double>::infinity(); // Invalid routing
     }
 
     double f_mlu = 0.;
+    most_congested_arc_id = -1;
+
     for (ArcIt arc(inst.network); arc != nt::INVALID; ++arc) {
         const double f_sat = sr.saturation(arc, inst.capacities[arc]);
-        f_mlu = nt::max(f_mlu, f_sat);
+        if (f_sat > f_mlu) {
+            f_mlu = f_sat;
+            most_congested_arc_id = inst.network.id(arc);
+        }
     }
+
     return f_mlu;
 }
 
@@ -52,8 +59,8 @@ bool Heuristic::RandomHeuristicRun() {
             path.init(inst.network, 3);  // 10 = estimated capacity for waypoints
             path.addSegment(source);
             path.finalize(target);
-
-            double best_mlu = computeMLU(t, rs);
+            int worst_arc;
+            double best_mlu = computeMLU(t, rs, worst_arc);
             SrPathBit best_path;
             best_path.copyFrom(path);
             // Try several random waypoints
@@ -70,19 +77,19 @@ bool Heuristic::RandomHeuristicRun() {
                         path.addSegment(source);
                         path.addSegment(p_wp, source);
                         path.finalize(target);
-
-                        double current_mlu = computeMLU(t, rs);
+                        int worst_arc;
+                        double current_mlu = computeMLU(t, rs, worst_arc);
                         if (current_mlu < best_mlu) {
                             best_mlu = current_mlu;
                             best_path.copyFrom(path);
-                            cout << "It is improved at t " << t << " and MLU is " << best_mlu << endl ;
+                            cout << "It is improved at t " << t << " for demand " << inst.demand_graph.id(demand_arc) <<" and for arc " << worst_arc <<  " and MLU is " << best_mlu << endl ;
                         }
                     }
                 }
             }
             // copy the best path into the main solution
             path.copyFrom(best_path);
-            cout << "Path segments: " << path.segmentNum()-1 << endl;
+            //cout << "Path segments: " << path.segmentNum()-1 << endl;
         }
     }
     // ===== END OF LOOP =====
@@ -91,11 +98,16 @@ bool Heuristic::RandomHeuristicRun() {
         result_builder.display(i_max_decimal_places);
         return false;
     }
-    cout << "Results:" << endl;
-    for (int i = 0; i < result_builder._mlu_values.size(); i++) {
-        cout << "t=" << i << " mlu=" << result_builder._mlu_values[i] << endl;
-    }
-    result_builder.display(i_max_decimal_places);
+   // cout << "Results:" << endl;
+
+   /* for (int s = 0 ; s < result_builder._sat_values.size() ; s++) {
+        auto triplet = result_builder._sat_values[s];
+        int source = inst.network.id(inst.network.source(triplet.second));
+        int target = inst.network.id(inst.network.target(triplet.second));
+        cout << "Time slot: " << triplet.first << ", Arc: (" << inst.network.id(triplet.second)
+        << " " << source << " , "<< target << "), Saturation: " << triplet.third << endl;
+    }*/
+    //result_builder.display(i_max_decimal_places);
     return true;
 }
 
