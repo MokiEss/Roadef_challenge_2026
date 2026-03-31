@@ -191,6 +191,7 @@ inline bool checkBudgetConstraint(const RoutingScheme& rs, const Instance& inst,
     if (!checkBudgetConstraintAt(rs, inst, scenario, t, i_cost)) return false;
     i_total_cost += i_cost;
   }
+  std:: cout << "i_total_cost " << i_total_cost << std::endl ;
   return true;
 }
 

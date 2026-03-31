@@ -7,9 +7,11 @@
 
 
 int main() {
-    string net_file = "/home/uha/Desktop/Roadef_challenge_2026/challenge-roadef-2026-main/setA/setA-01-net.json";
-    string scenario_file = "/home/uha/Desktop/Roadef_challenge_2026/challenge-roadef-2026-main/setA/setA-01-scenario.json";
-    string tm_file = "/home/uha/Desktop/Roadef_challenge_2026/challenge-roadef-2026-main/setA/setA-01-tm.json";
+    string nInstance; cout << "Instance number " ; cin >> nInstance ;
+
+    string net_file = "../challenge-roadef-2026-main/setA/setA-" + nInstance + "-net.json";
+    string scenario_file = "../challenge-roadef-2026-main/setA/setA-" + nInstance + "-scenario.json";
+    string tm_file = "../challenge-roadef-2026-main/setA/setA-" + nInstance + "-tm.json";
 
     Instance      inst;
     bool use_ftxui = false ;
@@ -20,5 +22,12 @@ int main() {
 
     Heuristic hr(inst, use_ftxui, result_builder, scenario );
     hr.RandomHeuristicRun();
+    // Validate budget constraints
+    if (!checkBudgetConstraint(hr.rs, hr.inst, hr.scenario, hr.result_builder._i_total_cost)) {
+        cout << "solution not feasible" << endl ;
+        result_builder.setValid(false);
+        result_builder.display(12);
+        return -1;
+    }
     return 0;
 }

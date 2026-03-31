@@ -17,14 +17,14 @@ struct CongestedArc {
 
 class Heuristic {
 
+
+public:
     Instance   &   inst;
     bool use_ftxui = false ;
     ResultBuilder & result_builder;
     Scenario & scenario;
     RoutingScheme rs;
     int i_max_decimal_places = 12;
-public:
-
     Heuristic(Instance   &   inst, bool use_ftxui, ResultBuilder & result_builder, Scenario & scenario ):inst(inst),use_ftxui(use_ftxui),
             result_builder(result_builder),scenario(scenario),rs(inst) {} ;
     bool RandomHeuristicRun();
