@@ -58,14 +58,19 @@ bool Heuristic::RandomHeuristicRun() {
                     // Get the SR path for this time slot and demand
                     SrPathBit & path = rs.getSrPath(t, demand_arc);
                     // Initialize with direct path
-                    path.init(inst.network, 3);  // 10 = estimated capacity for waypoints
-                    path.addSegment(source);
-                    path.finalize(target);
+                    if (t==0) {
+                        path.init(inst.network, 3);  // 10 = estimated capacity for waypoints
+                        path.addSegment(source);
+                        path.finalize(target);
+                    }
+                    else {
+                        path.copyFrom(rs.getSrPath(t-1, demand_arc));
+                    }
                     int worst_arc;
                     double best_mlu = computeMLU(t, rs, worst_arc);
                     SrPathBit best_path;
-                     if (t==0) best_path.copyFrom(path);
-                     if (t>0) best_path.copyFrom(rs.getSrPath(t-1, demand_arc));
+                     best_path.copyFrom(path);
+
                     // Try several random waypoints
                     const int num_attempts = 5;  // Adjust based on time constraints
                     vector<Node> WayPointsCandidates;
