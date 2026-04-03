@@ -60,3 +60,23 @@ void ReadNetworkInstance(string net_file, string scenario_file,  string tm_file,
 
 
 }
+
+
+PreprocessingEngine readAndPreprocess(string nInstance, Instance    &  inst,
+    bool & use_ftxui, ResultBuilder & result_builder, Scenario & scenario )
+
+{
+    string net_file = "../challenge-roadef-2026-main/setA/setA-" + nInstance + "-net.json";
+    string scenario_file = "../challenge-roadef-2026-main/setA/setA-" + nInstance + "-scenario.json";
+    string tm_file = "../challenge-roadef-2026-main/setA/setA-" + nInstance + "-tm.json";
+    use_ftxui = false ;
+    ReadNetworkInstance( net_file,  scenario_file,   tm_file,  inst,
+         use_ftxui,  result_builder, scenario );
+
+    PreprocessingEngine engine(inst, scenario);
+    //PreprocessingData prep_data = engine.preprocess();
+
+    // Display results
+   // engine.displayResults(12);
+    return engine;
+}
