@@ -4,6 +4,66 @@
 
 #include "Heuristic.h"
 
+
+bool Heuristic::addDemandFlowOnPathInPlace(
+    SegmentRouting& sr,
+    int time_slot,
+    DemandArc demand_arc,
+    const SrPathBit& path
+) {
+    const SegmentRouting::FlowValue flow = inst.dvms[time_slot][demand_arc];
+    if (flow <= 0.0) return true;
+
+    if (!path.empty()) {
+        return sr.routeFlow(path, flow);
+    }
+
+    // Fallback if provided path is empty
+    const Node s = inst.demand_graph.source(demand_arc);
+    const Node t = inst.demand_graph.target(demand_arc);
+    SrPathBit direct_path;
+    direct_path.init(inst.network, 2);
+    direct_path.addSegment(s);
+    direct_path.finalize(t);
+    return sr.routeFlow(direct_path, flow);
+}
+
+
+bool Heuristic::removeDemandFlowInPlace(SegmentRouting & sr,int time_slot, DemandArc demand_arc) {
+    // 1) Read demand volume at this time slot
+
+    const SegmentRouting::FlowValue flow = inst.dvms[time_slot][demand_arc];
+
+    if (flow <= 0.0) return true; // nothing to remove
+
+    // 2) Get the SR path currently assigned to this demand
+    const SrPathBit& path = rs.getSrPath(time_slot, demand_arc);
+
+    // 3) Remove directly from current SR state (in-place)
+    if (!path.empty()) {
+        // Removes ECMP-distributed flow along the SR path
+        sr.removeFlow(path, flow);
+    } else {
+        // If no SR path stored, demand is routed on shortest path source->target
+        const Node s = inst.demand_graph.source(demand_arc);
+        const Node t = inst.demand_graph.target(demand_arc);
+        sr.removeFlow(s, t, flow);
+    }
+
+    // 4) (Optional) refresh indicators from mutated sr state
+    //const auto most = sr.mostLoadedArc(inst.capacities);
+    // most.first is Arc, most.second is MLU
+    // e.g. store/report:
+    // double new_mlu = most.second;
+    // int most_congested_arc_id = (most.first == nt::INVALID) ? -1 : Digraph::id(most.first);
+
+    return true;
+}
+
+
+
+
+
 Node Heuristic::selectGeometricWaypoint(Node s, Node d, Arc worst_arc, const NetworkPrecompute& precomp) const {
     const Node u = inst.network.source(worst_arc);
     const Node v = inst.network.target(worst_arc);
@@ -380,7 +440,7 @@ bool Heuristic::ArcJumpHeuristicRun() {
 bool Heuristic::newHeuristicRun() {
     result_builder.setValid(true);
     std::vector<int> costInterventions(inst.demand_graph.arcNum(), 0);
-    std::vector<int> nbSegmentsByDemand(inst.demand_graph.arcNum(), 0);
+    std::vector<vector<int>> nbSegmentsByDemand(inst.i_num_time_slots, vector<int>(inst.demand_graph.arcNum(), 0));
     int total_cost = 0;
 
     // Precompute geometry-aware distances once
@@ -404,7 +464,7 @@ bool Heuristic::newHeuristicRun() {
             } else {
                 path.copyFrom(rs.getSrPath(t - 1, demand_arc));
             }
-            nbSegmentsByDemand[i] = path.segmentNum() - 1;
+            nbSegmentsByDemand[t][i] = path.segmentNum() - 1;
         }
 
         int max_iterations = 5000;
@@ -424,6 +484,16 @@ bool Heuristic::newHeuristicRun() {
             if (routed != inst.demand_graph.arcNum()) break;
 
             DemandArray &users = dpa[worst_arc];
+            for (int i = 0; i < users.size(); ++i) {
+                DemandArc da = users[i];
+                Node s = inst.demand_graph.source(da);
+                Node d = inst.demand_graph.target(da);
+                std::cout << "Demand " << inst.demand_graph.id(da) << " uses worst arc " << worst_arc_id
+                          << " from " << inst.network.id(s) << " to " << inst.network.id(d) << std::endl;
+
+            }
+            cin.get();
+            cout << "im here " << endl ;
             if (users.size() == 0) continue;
 
             // Best candidate among demands that cross worst_arc
@@ -484,7 +554,7 @@ bool Heuristic::newHeuristicRun() {
                 }
 
                 rs.setSrPaths(t, best_da, std::move(best_new_path));
-                nbSegmentsByDemand[demand_id] = rs.getSrPath(t, best_da).segmentNum() - 1;
+                nbSegmentsByDemand[t][demand_id] = rs.getSrPath(t, best_da).segmentNum() - 1;
 
                 std::cout << "Improved MLU (targeted): " << best_candidate_mlu
                           << " demand " << demand_id
@@ -507,9 +577,12 @@ bool Heuristic::newHeuristicRun() {
 
     result_builder._i_total_segments = 0;
     result_builder._i_total_srpaths = 0;
-    for (int segs : nbSegmentsByDemand) {
-        result_builder._i_total_segments += segs;
-        result_builder._i_total_srpaths += (segs > 1);
+    for (int i = 0; i < nbSegmentsByDemand.size(); i++) {
+        for (int j = 0; j < nbSegmentsByDemand[i].size(); j++) {
+            result_builder._i_total_segments += nbSegmentsByDemand[i][j];
+            result_builder._i_total_srpaths += (nbSegmentsByDemand[i][j] > 1);
+        }
+
     }
     result_builder._i_total_cost = total_cost;
 

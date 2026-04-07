@@ -22,6 +22,11 @@ struct CongestedArc {
     }
 };
 
+
+// Remove flow of one demand from the network state
+// Returns new arc loads, saturations, and MLU — without rerouting other demands
+
+
 class Heuristic {
 
 
@@ -44,6 +49,15 @@ public:
     double computeMLU(int time_slot, const RoutingScheme& test_rs, int& most_congested_arc_id);
     void computeAllPairsShortestPaths(NetworkPrecompute& precomp) ;
     Node selectGeometricWaypoint(Node s, Node d, Arc worst_arc, const NetworkPrecompute& precomp) const;
+    void applyWaypointToDemand(DemandArc demand_arc, Arc worst_arc, int time_slot);
+
+    bool addDemandFlowOnPathInPlace(
+        SegmentRouting& sr,
+        int time_slot,
+        DemandArc demand_arc,
+        const SrPathBit& path
+    );
+    bool removeDemandFlowInPlace(SegmentRouting & sr, int time_slot, DemandArc demand_arc);
 private:
     // New methods for congestion-aware routing
     std::vector<CongestedArc> getCongestedArcs(int time_slot, int top_k = 5);

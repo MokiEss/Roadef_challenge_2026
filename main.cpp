@@ -19,8 +19,8 @@ int main() {
 
     Heuristic hr(inst, use_ftxui, result_builder, scenario, sr );
     //hr.RandomHeuristicRun();
-    hr.ArcJumpHeuristicRun();
-    //hr.newHeuristicRun();
+    //hr.ArcJumpHeuristicRun();
+    hr.newHeuristicRun();
     // Validate budget constraints
 
     if (!checkBudgetConstraint(hr.rs, hr.inst, hr.scenario, hr.result_builder._i_total_cost)) {
