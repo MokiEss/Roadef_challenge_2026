@@ -1,0 +1,4 @@
+/opt/homebrew/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "Unix Makefiles" -S /Users/mokhtar/CLionProjects/Roadef_challenge_2026 -B /Users/mokhtar/CLionProjects/Roadef_challenge_2026/cmake-build-debug
+-- Configuring done (0.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/mokhtar/CLionProjects/Roadef_challenge_2026/cmake-build-debug
