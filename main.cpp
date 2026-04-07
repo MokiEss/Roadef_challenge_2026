@@ -14,11 +14,15 @@ int main() {
     bool use_ftxui = false ;
     ResultBuilder result_builder(inst, use_ftxui);
     Scenario scenario;
+    SegmentRouting sr(inst.network, inst.metrics);
     PreprocessingEngine engine = readAndPreprocess( nInstance, inst, use_ftxui, result_builder, scenario);
 
-    Heuristic hr(inst, use_ftxui, result_builder, scenario );
-    hr.RandomHeuristicRun();
+    Heuristic hr(inst, use_ftxui, result_builder, scenario, sr );
+    //hr.RandomHeuristicRun();
+    hr.ArcJumpHeuristicRun();
+    //hr.newHeuristicRun();
     // Validate budget constraints
+
     if (!checkBudgetConstraint(hr.rs, hr.inst, hr.scenario, hr.result_builder._i_total_cost)) {
         cout << "solution not feasible" << endl ;
         hr.result_builder.setValid(false);

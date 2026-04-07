@@ -293,9 +293,10 @@ struct RoutingScheme {
 
   SrPathBit&       getSrPath(int time_slot, DemandGraph::Arc demand_arc) noexcept { return _td_srpath[time_slot][demand_arc]; }
   const SrPathBit& getSrPath(int time_slot, DemandGraph::Arc demand_arc) const noexcept { return _td_srpath[time_slot][demand_arc]; }
+  void    setSrPathsAt(int time_slot, DemandGraph::ArcMap< SrPathBit >&& srpathbit) noexcept { _td_srpath[time_slot] = std::move(srpathbit); }
+    void  setSrPaths(int time_slot,DemandGraph::Arc demand_arc, SrPathBit && srpathbit) noexcept { _td_srpath[time_slot][demand_arc] = std::move(srpathbit); }
 
-  void                                    setSrPathsAt(int time_slot, DemandGraph::ArcMap< SrPathBit >&& srpathbit) noexcept { _td_srpath[time_slot] = std::move(srpathbit); }
-  DemandGraph::ArcMap< SrPathBit >&       getSrPathsAt(int time_slot) noexcept { return _td_srpath[time_slot]; }
+    DemandGraph::ArcMap< SrPathBit >&       getSrPathsAt(int time_slot) noexcept { return _td_srpath[time_slot]; }
   const DemandGraph::ArcMap< SrPathBit >& getSrPathsAt(int time_slot) const noexcept { return _td_srpath[time_slot]; }
 
   void removeSrPath(int time_slot, DemandGraph::Arc demand_arc, int waypoint_index) noexcept

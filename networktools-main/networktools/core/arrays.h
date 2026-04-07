@@ -75,7 +75,7 @@
 
 #ifndef _NT_ARRAYS_H_
 #define _NT_ARRAYS_H_
-
+#include <type_traits>
 #include <cstdlib>    // malloc(), realloc(), free(), size_t
 #include <cstring>    // memset(), memcpy(), memmove(), memcmp()
 #include <cassert>    // assert()
