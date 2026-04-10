@@ -5,62 +5,25 @@
 #include "Heuristic.h"
 
 
-bool Heuristic::addDemandFlowOnPathInPlace(
-    SegmentRouting& sr,
-    int time_slot,
-    DemandArc demand_arc,
-    const SrPathBit& path
-) {
-    const SegmentRouting::FlowValue flow = inst.dvms[time_slot][demand_arc];
-    if (flow <= 0.0) return true;
 
-    if (!path.empty()) {
-        return sr.routeFlow(path, flow);
-    }
+double Heuristic::computeMLU(SegmentRouting & sr, int time_slot,  int& most_congested_arc_id,
+    DemandArc demand_arc,const SrPathBit& old_path, const SrPathBit& path, Digraph::ArcMap<DemandArray> & dpa ) {
+    double flow = inst.dvms[time_slot][demand_arc];
 
-    // Fallback if provided path is empty
-    const Node s = inst.demand_graph.source(demand_arc);
-    const Node t = inst.demand_graph.target(demand_arc);
-    SrPathBit direct_path;
-    direct_path.init(inst.network, 2);
-    direct_path.addSegment(s);
-    direct_path.finalize(t);
-    return sr.routeFlow(direct_path, flow);
+
+    // Remove old flow, add new flow (no dpa involved)
+
+    sr.removeFlow(old_path, flow);
+    sr.routeFlow(path, flow,demand_arc,dpa);
+
+    auto most = sr.mostLoadedArc(inst.capacities);
+    double mlu = most.second;
+    most_congested_arc_id = (most.first == nt::INVALID) ? -1 : Digraph::id(most.first);
+    // Undo: restore to original state
+    sr.removeFlow(path, flow);
+    sr.routeFlow(old_path, flow,demand_arc,dpa);
+    return mlu ;
 }
-
-
-bool Heuristic::removeDemandFlowInPlace(SegmentRouting & sr,int time_slot, DemandArc demand_arc) {
-    // 1) Read demand volume at this time slot
-
-    const SegmentRouting::FlowValue flow = inst.dvms[time_slot][demand_arc];
-
-    if (flow <= 0.0) return true; // nothing to remove
-
-    // 2) Get the SR path currently assigned to this demand
-    const SrPathBit& path = rs.getSrPath(time_slot, demand_arc);
-
-    // 3) Remove directly from current SR state (in-place)
-    if (!path.empty()) {
-        // Removes ECMP-distributed flow along the SR path
-        sr.removeFlow(path, flow);
-    } else {
-        // If no SR path stored, demand is routed on shortest path source->target
-        const Node s = inst.demand_graph.source(demand_arc);
-        const Node t = inst.demand_graph.target(demand_arc);
-        sr.removeFlow(s, t, flow);
-    }
-
-    // 4) (Optional) refresh indicators from mutated sr state
-    //const auto most = sr.mostLoadedArc(inst.capacities);
-    // most.first is Arc, most.second is MLU
-    // e.g. store/report:
-    // double new_mlu = most.second;
-    // int most_congested_arc_id = (most.first == nt::INVALID) ? -1 : Digraph::id(most.first);
-
-    return true;
-}
-
-
 
 
 
@@ -109,6 +72,7 @@ Node Heuristic::selectGeometricWaypoint(Node s, Node d, Arc worst_arc, const Net
 
 double Heuristic::computeMLU(int time_slot, const RoutingScheme& test_rs, int& most_congested_arc_id) {
     sr.clear();
+    InterventionGuard intervention_guard(inst.network, inst.metrics, scenario.interventions[time_slot]);
     const int i_num_routed = sr.run(inst.demand_graph, inst.dvms[time_slot], test_rs.getSrPathsAt(time_slot));
 
     if (i_num_routed != inst.demand_graph.arcNum()) {
@@ -184,7 +148,7 @@ bool Heuristic::RandomHeuristicRun() {
         // Iterate through all demands
              for (int i = 0; i < inst.demand_graph.arcNum(); i++) {
                  // Get the SR path for this time slot and demand
-                cout << "Arc " << i << endl ;
+
                  DemandArc demand_arc = inst.demand_graph.arcFromId(i);
                  SrPathBit & path = rs.getSrPath(t, demand_arc);
                  int i_num_segments = 0;
@@ -252,7 +216,7 @@ bool Heuristic::RandomHeuristicRun() {
                     // copy the best path into the main solution
 
                     rs.setSrPaths(t,demand_arc, std::move(best_path));
-                    i_num_segments = best_path.segmentNum() - 1;
+                    i_num_segments = rs.getSrPath(t,demand_arc).segmentNum() - 1;
                     i_total_segments += i_num_segments;      // Accumulate total number of segments across all SR paths
                     i_num_srpaths += (i_num_segments > 1);   // Count only srpaths with more than one segment
                 }
@@ -292,10 +256,8 @@ bool Heuristic::RandomHeuristicRun() {
 bool Heuristic::ArcJumpHeuristicRun() {
     result_builder.setValid(true);
     vector<int> costInterventions(inst.demand_graph.arcNum(),0);
-    vector<int> NbSegmentsByDemand(inst.demand_graph.arcNum(),0);
+    std::vector<vector<int>> nbSegmentsByDemand(inst.i_num_time_slots, vector<int>(inst.demand_graph.arcNum(), 1));
     int total_cost = 0;
-    int i_total_segments = 0;
-    int i_num_srpaths = 0;
     static std::mt19937 rng(std::random_device{}());
 
     for (int t = 0; t < inst.i_num_time_slots; ++t) {
@@ -319,7 +281,7 @@ bool Heuristic::ArcJumpHeuristicRun() {
             }
         }
 
-        int max_iterations = 10;
+        int max_iterations = 100;
 
         while (max_iterations--) {
 
@@ -339,6 +301,7 @@ bool Heuristic::ArcJumpHeuristicRun() {
                 if (neigh != v) {
                     neighbors.push_back(neigh);
                 }
+
             }
 
             if (neighbors.empty()) continue;
@@ -348,9 +311,11 @@ bool Heuristic::ArcJumpHeuristicRun() {
             Node wp = neighbors[RandomWayPoint];
 
             // 👉 Instead of all demands: try a few random ones
-            const int trials = 100;
-
-            for (int k = 0; k < trials; k++) {
+            const int trials = 2000;
+            int k = 0 ;
+            int tmp_arc = worst_arc_id ;
+            bool improved = false;
+            while (k < trials && improved == false && tmp_arc == worst_arc_id) {
 
                 int i = genRandomInt(inst.demand_graph.arcNum());
                 DemandArc demand_arc = inst.demand_graph.arcFromId(i);
@@ -366,35 +331,38 @@ bool Heuristic::ArcJumpHeuristicRun() {
                 path.addSegment(s);
                 path.addSegment(wp, s);
                 path.finalize(d);
-
-                int tmp_arc;
-                double new_mlu = computeMLU(t, rs, tmp_arc);
+                int wArc ;
+                double new_mlu = computeMLU(t, rs, wArc);
                 int cost = (t == 0) ? 0 :
                 dist(rs.getSrPath(t - 1, demand_arc), path);
                 if (new_mlu < best_mlu) {
-                    if (t == 0 || (total_cost-costInterventions[i]) + cost <= scenario.budget[t]) {
+                    if (t == 0 || (  total_cost-costInterventions[i]) + cost <= scenario.budget[t]) {
                         best_mlu = new_mlu;
                         if (t > 0)  {
                             total_cost-=costInterventions[i];
                             total_cost += cost;
                             costInterventions[i] = cost ;
                         }
+                        tmp_arc = wArc ;
                         std::cout << "Improved MLU: " << best_mlu << " from demand " << i
-                                  << " via arc " << worst_arc_id << " total cost is " <<total_cost<<
+                                  << " via arc " << tmp_arc << " total cost is " <<total_cost<<
                                       std::endl;
-                    } else {
-                        //path.copyFrom(backup);
+                        improved = true ;
 
+                    }
+                    else {
                         rs.setSrPaths(t,demand_arc, std::move(backup));
+                        //path.copyFrom(backup);
                     }
 
-                } else {
+                }
+                else {
                     //path.copyFrom(backup);
-
                     rs.setSrPaths(t,demand_arc, std::move(backup));
                 }
-                int i_num_segments = path.segmentNum() - 1;
-                NbSegmentsByDemand[i] = i_num_segments ;
+                int i_num_segments = rs.getSrPath(t,demand_arc).segmentNum() - 1;
+                nbSegmentsByDemand[t][i] = i_num_segments ;
+                k++;
             }
 
         }
@@ -418,9 +386,12 @@ bool Heuristic::ArcJumpHeuristicRun() {
     cout << "Results:" << endl;
     result_builder._i_total_segments = 0 ;
     result_builder._i_total_srpaths = 0 ;
-    for(int i = 0 ; i < NbSegmentsByDemand.size() ; i++) {
-        result_builder._i_total_segments += NbSegmentsByDemand[i];
-        result_builder._i_total_srpaths += (NbSegmentsByDemand[i]>1);
+    for(int i = 0 ; i < nbSegmentsByDemand.size() ; i++) {
+        for (int j = 0 ; j < nbSegmentsByDemand[i].size() ; j++) {
+            result_builder._i_total_segments += nbSegmentsByDemand[i][j];
+            result_builder._i_total_srpaths += (nbSegmentsByDemand[i][j]>1);
+        }
+
     }
     result_builder._i_total_cost = total_cost;
     std::sort(
@@ -443,13 +414,13 @@ bool Heuristic::newHeuristicRun() {
     std::vector<vector<int>> nbSegmentsByDemand(inst.i_num_time_slots, vector<int>(inst.demand_graph.arcNum(), 0));
     int total_cost = 0;
 
-    // Precompute geometry-aware distances once
-    NetworkPrecompute precomp;
-    computeAllPairsShortestPaths(precomp);
 
     for (int t = 0; t < inst.i_num_time_slots; ++t) {
+        Digraph::ArcMap<DemandArray> dpa(inst.network);
         std::cout << "=== Time Slot " << t << " (targeted) ===" << std::endl;
-
+        InterventionGuard intervention_guard(inst.network, inst.metrics, scenario.interventions[t]);
+        double best_mlu = 0.0;
+        int worst_arc_id = 0;
         // Init direct paths / carry-over
         for (int i = 0; i < inst.demand_graph.arcNum(); ++i) {
             DemandArc demand_arc = inst.demand_graph.arcFromId(i);
@@ -466,34 +437,22 @@ bool Heuristic::newHeuristicRun() {
             }
             nbSegmentsByDemand[t][i] = path.segmentNum() - 1;
         }
-
-        int max_iterations = 5000;
+        sr.clear();
+        int routed = sr.run(inst.demand_graph, inst.dvms[t], rs.getSrPathsAt(t), dpa);
+        auto most = sr.mostLoadedArc(inst.capacities);
+        best_mlu = most.second;
+        worst_arc_id = Digraph::id(most.first);
+        int max_iterations = 10000;
         while (max_iterations--) {
-            int worst_arc_id = -1;
-            double best_mlu = computeMLU(t, rs, worst_arc_id);
+
             if (worst_arc_id == -1) break;
 
             Arc worst_arc = inst.network.arcFromId(worst_arc_id);
 
             // Recompute demands-per-arc for CURRENT routing at time t
-            using DemandArray = nt::TrivialDynamicArray<DemandArc>;
-            Digraph::ArcMap<DemandArray> dpa(inst.network);
-
-            sr.clear();
-            const int routed = sr.run(inst.demand_graph, inst.dvms[t], rs.getSrPathsAt(t), dpa);
-            if (routed != inst.demand_graph.arcNum()) break;
 
             DemandArray &users = dpa[worst_arc];
-            for (int i = 0; i < users.size(); ++i) {
-                DemandArc da = users[i];
-                Node s = inst.demand_graph.source(da);
-                Node d = inst.demand_graph.target(da);
-                std::cout << "Demand " << inst.demand_graph.id(da) << " uses worst arc " << worst_arc_id
-                          << " from " << inst.network.id(s) << " to " << inst.network.id(d) << std::endl;
 
-            }
-            cin.get();
-            cout << "im here " << endl ;
             if (users.size() == 0) continue;
 
             // Best candidate among demands that cross worst_arc
@@ -507,21 +466,37 @@ bool Heuristic::newHeuristicRun() {
                 Node s = inst.demand_graph.source(demand_arc);
                 Node d = inst.demand_graph.target(demand_arc);
 
-                Node wp = selectGeometricWaypoint(s, d, worst_arc, precomp);
+                //Node wp = selectGeometricWaypoint(s, d, worst_arc, precomp);
+                Node source_worst_arc = inst.network.source(worst_arc);
+                Node target_worst_arc = inst.network.target(worst_arc);
+                std::vector<Node> neighbors;
+                for (OutArcIt a(inst.network, source_worst_arc); a != nt::INVALID; ++a) {
+                    Node neigh = inst.network.target(a);
+                    if (neigh != target_worst_arc) {
+                        neighbors.push_back(neigh);
+                    }
+                }
+
+                if (neighbors.empty()) continue;
+
+                // Pick random neighbor as waypoint
+                int RandomWayPoint = genRandomInt(neighbors.size());
+                Node wp = neighbors[RandomWayPoint];
                 if (wp == nt::INVALID) continue;
 
                 SrPathBit &path = rs.getSrPath(t, demand_arc);
                 SrPathBit backup;
                 backup.copyFrom(path);
 
-                // Try candidate reroute
-                path.init(inst.network, 3);
-                path.addSegment(s);
-                path.addSegment(wp, s);
-                path.finalize(d);
+                // Build candidate
+                SrPathBit candidate;
+                candidate.init(inst.network, 3);
+                candidate.addSegment(s);
+                candidate.addSegment(wp, s);
+                candidate.finalize(d);
 
                 int tmp_arc = -1;
-                const double new_mlu = computeMLU(t, rs, tmp_arc);
+                const double new_mlu = computeMLU(sr, t,  tmp_arc, demand_arc,backup, candidate, dpa );
                 const int demand_id = inst.demand_graph.id(demand_arc);
                 const int new_cost = (t == 0) ? 0 : dist(rs.getSrPath(t - 1, demand_arc), path);
 
@@ -539,6 +514,8 @@ bool Heuristic::newHeuristicRun() {
                         best_new_path.addSegment(s);
                         best_new_path.addSegment(wp, s);
                         best_new_path.finalize(d);
+                        sr.removeFlow(backup, inst.dvms[t][demand_arc]);
+                        sr.routeFlow(best_new_path, inst.dvms[t][demand_arc],demand_arc,dpa);
                     }
                 }
             }
