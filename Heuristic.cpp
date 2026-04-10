@@ -486,7 +486,6 @@ bool Heuristic::newHeuristicRun() {
             bool improved = false;
             // get the demands that are responsible for the most congested arc
             DemandArray &users = dpa[worst_arc];
-            cout << "dpa.size() " << users.size() << " " << "worst_arc_id " << worst_arc_id <<  endl;
 
             if (users.size() == 0) continue;
             int nb_users = users.size();
