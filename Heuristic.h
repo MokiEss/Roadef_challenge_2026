@@ -42,7 +42,11 @@ public:
             result_builder(result_builder),scenario(scenario),rs(inst), sr(sr) {
 
     } ;
-
+    bool buildPathWithWaypointsCapped(
+    SrPathBit& out_path,
+    Node source,
+    Node target,
+    int max_segments,int requested_waypoints) const;
     bool RandomHeuristicRun();
     bool ArcJumpHeuristicRun();
     bool newHeuristicRun();

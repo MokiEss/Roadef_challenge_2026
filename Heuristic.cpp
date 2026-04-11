@@ -4,6 +4,47 @@
 
 #include "Heuristic.h"
 
+bool Heuristic::buildPathWithWaypointsCapped(SrPathBit& out_path,Node source,Node target,
+    int max_segments, int requested_waypoints) const
+{
+
+    if (max_segments < 1) return false;
+
+    // Max number of waypoint-nodes we can insert while respecting segment limit.
+    // segments = 1 + num_waypoints
+    const int max_waypoints_by_segments = max_segments - 1;
+    const int max_waypoints_by_nodes = std::max(0, inst.network.nodeNum() - 2);
+    const int wp_limit = std::min(max_waypoints_by_segments, max_waypoints_by_nodes);
+
+    const int wp_count = std::max(0, std::min(requested_waypoints, wp_limit));
+
+    std::vector<Node> candidates;
+    candidates.reserve(inst.network.nodeNum());
+    for (NodeIt n(inst.network); n != nt::INVALID; ++n) {
+        if (n != source && n != target) candidates.push_back(n);
+    }
+
+    static thread_local std::mt19937 rng(std::random_device{}());
+    std::shuffle(candidates.begin(), candidates.end(), rng);
+
+    out_path.init(inst.network, wp_count + 2); // source + waypoints + target
+    out_path.addSegment(source);
+
+    Node last = source;
+    for (int k = 0; k < wp_count; ++k) {
+        const Node wp = candidates[k];
+        out_path.addSegment(wp, last);
+        last = wp;
+    }
+
+    out_path.finalize(target);
+
+    return (out_path.segmentNum() - 1) <= max_segments;
+
+}
+
+
+
 
 
 double Heuristic::computeMLU(SegmentRouting & sr, int time_slot,  int& most_congested_arc_id,
@@ -281,7 +322,7 @@ bool Heuristic::ArcJumpHeuristicRun() {
             }
         }
 
-        int max_iterations = 100;
+        int max_iterations = 10;
 
         while (max_iterations--) {
 
@@ -433,16 +474,18 @@ bool Heuristic::newHeuristicRun() {
                 path.init(inst.network, 3);  // 10 = estimated capacity for waypoints
                 path.addSegment(source);
                 path.finalize(target);
+               // buildPathWithWaypointsCapped(path,source,target,scenario.i_max_segments,genRandomInt(1));
             }
             else {
                 path.copyFrom(rs.getSrPath(t-1, demand_arc));
+                nbSegmentsByDemand[t][i] = rs.getSrPath(t-1, demand_arc).segmentNum() - 1;
             }
         }
 
         int max_iterations = 1000;
 
         while (max_iterations--) {
-            // The route  all the sr paths and get the objective
+            // route  all the sr paths and get the objective
             sr.clear();
             int worst_arc_id;
             Digraph::ArcMap<DemandArray> dpa(inst.network);
@@ -472,15 +515,10 @@ bool Heuristic::newHeuristicRun() {
                     }
                 }
             }
-
-            if (neighbors.empty()) continue;
-
             // Pick random neighbor as waypoint
             int RandomWayPoint = genRandomInt(neighbors.size());
             Node wp = neighbors[RandomWayPoint];
-
-            // 👉 Instead of all demands: try a few random ones
-
+            if (neighbors.empty()) continue;
             int k = 0 ;
             int tmp_arc = worst_arc_id ;
             bool improved = false;
@@ -505,7 +543,6 @@ bool Heuristic::newHeuristicRun() {
                 path.addSegment(s);
                 path.addSegment(wp, s);
                 path.finalize(d);
-                int wArc ;
                 double new_mlu = computeMLU(sr, t,  tmp_arc, demand_arc,backup, path, dpa, false );
                 int cost = (t == 0) ? 0 :
                 dist(rs.getSrPath(t - 1, demand_arc), path);
@@ -517,37 +554,27 @@ bool Heuristic::newHeuristicRun() {
                             total_cost += cost;
                             costInterventions[i] = cost ;
                         }
-                        //tmp_arc = wArc ;
                         std::cout << "Improved MLU: " << best_mlu << " from demand " << i
-                                  << " via arc " << tmp_arc << " total cost is " <<total_cost<<
+                                  << " via arc " << tmp_arc << " total cost is " <<total_cost<< " using waypoint " << inst.network.id(wp) <<
                                       std::endl;
                         improved = true ;
-
                     }
                     else {
                         rs.setSrPaths(t,demand_arc, std::move(backup));
-                        //path.copyFrom(backup);
                     }
-
                 }
                 else {
-                    //path.copyFrom(backup);
                     rs.setSrPaths(t,demand_arc, std::move(backup));
                 }
-                int i_num_segments = rs.getSrPath(t,demand_arc).segmentNum() - 1;
-                nbSegmentsByDemand[t][i] = i_num_segments ;
+                nbSegmentsByDemand[t][i] = rs.getSrPath(t,demand_arc).segmentNum() - 1;
                 k++;
             }
 
         }
-
-        // Budget fallback
-
         if (t > 0 && total_cost >= scenario.budget[t]) {
             cout << "Budget reached or excessed " << endl ;
             break ;
         }
-
     }
 
     // ===== END OF LOOP =====
